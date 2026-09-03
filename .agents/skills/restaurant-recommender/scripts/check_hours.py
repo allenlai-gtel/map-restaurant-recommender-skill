@@ -60,7 +60,7 @@ def is_open_at(periods: list[dict], target_dt: datetime.datetime) -> tuple[bool,
         open_total = open_day * 24 * 60 + open_hr * 60 + open_min
         close_total = close_day * 24 * 60 + close_hr * 60 + close_min
 
-        # Calculate duration of this open shift
+        # Calculate duration of this operating period
         span = (close_total - open_total) % MINUTES_IN_WEEK
         if span == 0:
             span = MINUTES_IN_WEEK
@@ -80,7 +80,7 @@ def parse_place_details(raw_place: dict, target_dt: datetime.datetime) -> dict:
     Extracts lean verified fields from raw Places API response.
     """
     place_id = raw_place.get("id", "")
-    display_name = raw_place.get("displayName", {}).get("text", "")
+    display_name = (raw_place.get("displayName") or {}).get("text", "")
     address = raw_place.get("formattedAddress", "")
     rating = raw_place.get("rating", 0.0)
     review_count = raw_place.get("userRatingCount", 0)
@@ -88,9 +88,10 @@ def parse_place_details(raw_place: dict, target_dt: datetime.datetime) -> dict:
     reservable = raw_place.get("reservable", False)
     google_maps_uri = raw_place.get("googleMapsUri", "")
     website_uri = raw_place.get("websiteUri", "")
-    editorial_summary = raw_place.get("editorialSummary", {}).get("text", "")
+    editorial_summary = (raw_place.get("editorialSummary") or {}).get("text", "")
 
-    periods = raw_place.get("regularOpeningHours", {}).get("periods", [])
+    opening_hours_obj = raw_place.get("regularOpeningHours") or {}
+    periods = opening_hours_obj.get("periods") or []
     is_open, hours_message = is_open_at(periods, target_dt)
 
     # Extract signature tips from editorial summary and reviews

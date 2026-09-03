@@ -1,6 +1,6 @@
 ---
 name: restaurant-recommender
-description: Discover and verify local dining spots using Google Places API and compile an HTML recommendation showcase with direct Google Maps links. Use when asked for restaurant recommendations, dining spots, or food suggestions for a specific time and location.
+description: Discover and verify local dining spots using Google Places API and compile an HTML recommendation showcase with direct Google Maps links. Use when asked for restaurant recommendations for a specific time and location.
 ---
 
 # Restaurant Recommender
@@ -48,14 +48,8 @@ Repeat until you obtain exactly **THREE Vetted Recommendations** where `is_open`
 ### 4. Enrich Tips & Reservation Guidance
 
 Extract signature dishes and reservation advice:
-- Inspect `tips` and `reservable` fields from the verification step.
-- If signature dish details are sparse or booking rules (e.g. Resy/OpenTable booking window release dates) require clarification, perform a targeted Google Search query:
-
-```bash
-# Optional fallback if more dish context is needed
-python -c "import urllib.request; ..."
-```
-(or use the agent's built-in `google_search` tool).
+- Inspect `tips` and `reservable` fields from the verification output.
+- If signature dish details are sparse or reservation policies require deeper verification, run a targeted web search using the agent's built-in `google_search` tool.
 
 ### 5. Build Recommendation Showcase
 

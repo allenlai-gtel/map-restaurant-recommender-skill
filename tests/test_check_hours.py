@@ -30,25 +30,36 @@ class TestOperatingHoursEvaluation(unittest.TestCase):
             },
         ]
 
-    def test_open_during_regular_lunch_shift(self):
+    def test_open_during_regular_lunch_operating_period(self):
         # 2026-09-04 is a Friday
         target_dt = datetime(2026, 9, 4, 12, 30)
         is_open, message = is_open_at(self.sample_periods, target_dt)
         self.assertTrue(is_open)
         self.assertIn("11:30", message)
 
-    def test_closed_between_shifts(self):
+    def test_closed_between_operating_periods(self):
         # Friday 15:30 (between lunch and dinner)
         target_dt = datetime(2026, 9, 4, 15, 30)
         is_open, _ = is_open_at(self.sample_periods, target_dt)
         self.assertFalse(is_open)
 
-    def test_open_during_dinner_shift(self):
+    def test_open_during_dinner_operating_period(self):
         # Friday 19:30
         target_dt = datetime(2026, 9, 4, 19, 30)
         is_open, message = is_open_at(self.sample_periods, target_dt)
         self.assertTrue(is_open)
         self.assertIn("17:30", message)
+
+    def test_null_regular_opening_hours_safe(self):
+        raw_place = {
+            "id": "places/ChIJ_null_hours",
+            "displayName": {"text": "No Hours Cafe"},
+            "regularOpeningHours": None
+        }
+        target_dt = datetime(2026, 9, 4, 19, 30)
+        lean = parse_place_details(raw_place, target_dt)
+        self.assertFalse(lean["is_open"])
+        self.assertEqual(lean["hours_message"], "Operating hours not available")
 
     def test_open_crossing_midnight_pre_midnight(self):
         # Saturday 2026-09-05 at 23:00

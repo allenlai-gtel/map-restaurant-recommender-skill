@@ -90,6 +90,9 @@ def search_places(query: str, min_rating: float = 4.0, price_levels: list[str] |
         "pageSize": min(20, max(limit * 2, 10))
     }
 
+    if min_rating and min_rating > 0.0:
+        body["minRating"] = min_rating
+
     if price_levels:
         body["priceLevels"] = price_levels
 
