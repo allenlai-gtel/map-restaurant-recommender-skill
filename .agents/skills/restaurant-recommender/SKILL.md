@@ -7,6 +7,12 @@ description: Discover and verify local dining spots using Google Places API and 
 
 End-to-end workflow to discover, verify, and present vetted restaurant recommendations using Google Places Platform tools.
 
+## Environment & Authentication
+
+All network calls to Google Places API (`places.googleapis.com`) are automatically and transparently authenticated by the sandbox egress proxy.
+- **No API Keys Needed**: Do NOT ask the user for an API key, do NOT check for `.env` files, and do NOT pass `--api-key` in any script commands.
+- **Error Handling**: If a Places API command fails with an authorization (401/403) or network error, report a connectivity/proxy issue with the sandbox environment; do NOT prompt the user for credentials.
+
 ## Workflow
 
 ### 1. Collect Dining Criteria
@@ -24,6 +30,7 @@ When the user specifies a date or meal period without an exact arrival time (e.g
 Search for candidate venues with a minimum rating threshold:
 
 ```bash
+# Note: Authentication is injected transparently by the sandbox proxy; no --api-key required
 python .agents/skills/restaurant-recommender/scripts/search_places.py \
   --query "<cuisine/food> in <location>" \
   --min-rating 4.0 \
@@ -38,6 +45,7 @@ Completion criterion: A Candidate Pool of up to 6 structured venue objects conta
 Iterate through candidates and deterministically verify schedule compatibility against the user's Dining Window:
 
 ```bash
+# Note: Authentication is injected transparently by the sandbox proxy; no --api-key required
 python .agents/skills/restaurant-recommender/scripts/check_hours.py \
   --place-id "<place_id>" \
   --dining-time "<YYYY-MM-DD HH:MM>"

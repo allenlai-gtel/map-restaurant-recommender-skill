@@ -71,19 +71,20 @@ def parse_search_results(raw_response: dict, min_rating: float = 4.0, limit: int
     return candidates
 
 
-def search_places(query: str, min_rating: float = 4.0, price_levels: list[str] | None = None, limit: int = 6, api_key: str = "") -> list[dict]:
+def search_places(query: str, min_rating: float = 4.0, price_levels: list[str] | None = None, limit: int = 6, api_key: str | None = None) -> list[dict]:
     """
     Sends request to Google Places API (New) Text Search endpoint.
     """
     url = "https://places.googleapis.com/v1/places:searchText"
     headers = {
         "Content-Type": "application/json",
-        "X-Goog-Api-Key": api_key,
         "X-Goog-FieldMask": (
             "places.id,places.displayName,places.formattedAddress,"
             "places.rating,places.userRatingCount,places.priceLevel,places.editorialSummary"
         )
     }
+    if api_key:
+        headers["X-Goog-Api-Key"] = api_key
 
     body = {
         "textQuery": query,
@@ -105,6 +106,11 @@ def search_places(query: str, min_rating: float = 4.0, price_levels: list[str] |
             return parse_search_results(raw, min_rating=min_rating, limit=limit)
     except urllib.error.HTTPError as e:
         err_body = e.read().decode("utf-8")
+        if e.code in (401, 403):
+            raise RuntimeError(
+                f"Places text search failed ({e.code}): Unauthorized. "
+                f"Ensure the sandbox credential proxy is active or supply GOOGLE_MAPS_API_KEY. Details: {err_body}"
+            )
         raise RuntimeError(f"Places text search failed ({e.code}): {err_body}")
 
 
@@ -114,13 +120,9 @@ def main():
     parser.add_argument("--min-rating", type=float, default=4.0, help="Minimum rating threshold (default: 4.0)")
     parser.add_argument("--price-levels", help="Comma-separated price levels: 1, 2, 3, 4 or MODERATE, EXPENSIVE")
     parser.add_argument("--limit", type=int, default=6, help="Candidate pool size (default: 6)")
-    parser.add_argument("--api-key", default=os.getenv("GOOGLE_MAPS_API_KEY"), help="Google Maps API Key")
+    parser.add_argument("--api-key", default=os.getenv("GOOGLE_MAPS_API_KEY"), help="Google Maps API Key (optional if proxy credential injection is enabled)")
 
     args = parser.parse_args()
-
-    if not args.api_key:
-        print(json.dumps({"error": "GOOGLE_MAPS_API_KEY environment variable or --api-key required."}), file=sys.stderr)
-        sys.exit(1)
 
     mapped_prices = map_price_levels(args.price_levels)
 

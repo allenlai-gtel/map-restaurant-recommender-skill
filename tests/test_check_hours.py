@@ -1,12 +1,15 @@
 import unittest
+from unittest.mock import patch, MagicMock
 from datetime import datetime
+import urllib.error
+import io
 import sys
 import os
 
 # Ensure skill scripts directory is importable
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".agents", "skills", "restaurant-recommender", "scripts")))
 
-from check_hours import is_open_at, parse_place_details
+from check_hours import is_open_at, parse_place_details, fetch_place_details
 
 
 class TestOperatingHoursEvaluation(unittest.TestCase):
@@ -121,6 +124,49 @@ class TestOperatingHoursEvaluation(unittest.TestCase):
         self.assertTrue(lean["reservable"])
         self.assertEqual(lean["googleMapsUri"], "https://maps.google.com/?cid=12345")
         self.assertIn("cacio e pepe", " ".join(lean["tips"]))
+
+    @patch("urllib.request.urlopen")
+    def test_fetch_place_details_omits_api_key_header_when_none(self, mock_urlopen):
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b'{"id": "places/123"}'
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        fetch_place_details(place_id="123", api_key=None)
+
+        self.assertTrue(mock_urlopen.called)
+        req = mock_urlopen.call_args[0][0]
+        self.assertFalse(req.has_header("X-goog-api-key"))
+
+    @patch("urllib.request.urlopen")
+    def test_fetch_place_details_includes_api_key_header_when_provided(self, mock_urlopen):
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b'{"id": "places/123"}'
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        fetch_place_details(place_id="123", api_key="TEST_API_KEY")
+
+        self.assertTrue(mock_urlopen.called)
+        req = mock_urlopen.call_args[0][0]
+        self.assertTrue(req.has_header("X-goog-api-key"))
+        self.assertEqual(req.get_header("X-goog-api-key"), "TEST_API_KEY")
+
+    @patch("urllib.request.urlopen")
+    def test_fetch_place_details_unauthorized_error_diagnostic(self, mock_urlopen):
+        err = urllib.error.HTTPError(
+            url="https://places.googleapis.com",
+            code=403,
+            msg="Forbidden",
+            hdrs={},
+            fp=io.BytesIO(b'{"error": {"status": "PERMISSION_DENIED"}}')
+        )
+        mock_urlopen.side_effect = err
+
+        with self.assertRaises(RuntimeError) as ctx:
+            fetch_place_details(place_id="123", api_key=None)
+
+        self.assertIn("sandbox credential proxy is active", str(ctx.exception))
 
 
 if __name__ == "__main__":

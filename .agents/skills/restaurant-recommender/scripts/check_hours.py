@@ -122,7 +122,7 @@ def parse_place_details(raw_place: dict, target_dt: datetime.datetime) -> dict:
     }
 
 
-def fetch_place_details(place_id: str, api_key: str) -> dict:
+def fetch_place_details(place_id: str, api_key: str | None = None) -> dict:
     """
     Fetches place details from Google Places API (New).
     """
@@ -134,12 +134,13 @@ def fetch_place_details(place_id: str, api_key: str) -> dict:
     url = f"https://places.googleapis.com/v1/{formatted_id}"
     headers = {
         "Content-Type": "application/json",
-        "X-Goog-Api-Key": api_key,
         "X-Goog-FieldMask": (
             "id,displayName,formattedAddress,rating,userRatingCount,priceLevel,"
             "regularOpeningHours,reservable,websiteUri,googleMapsUri,editorialSummary,reviews"
         )
     }
+    if api_key:
+        headers["X-Goog-Api-Key"] = api_key
 
     req = urllib.request.Request(url, headers=headers, method="GET")
     try:
@@ -147,6 +148,11 @@ def fetch_place_details(place_id: str, api_key: str) -> dict:
             return json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8")
+        if e.code in (401, 403):
+            raise RuntimeError(
+                f"Places API request failed ({e.code}): Unauthorized. "
+                f"Ensure the sandbox credential proxy is active or supply GOOGLE_MAPS_API_KEY. Details: {body}"
+            )
         raise RuntimeError(f"Places API request failed ({e.code}): {body}")
 
 
@@ -154,13 +160,9 @@ def main():
     parser = argparse.ArgumentParser(description="Inspect Place Details and verify operating hours.")
     parser.add_argument("--place-id", required=True, help="Google Place ID (e.g., places/ChIJ...)")
     parser.add_argument("--dining-time", required=True, help="Target dining datetime, formatted 'YYYY-MM-DD HH:MM'")
-    parser.add_argument("--api-key", default=os.getenv("GOOGLE_MAPS_API_KEY"), help="Google Maps API Key")
+    parser.add_argument("--api-key", default=os.getenv("GOOGLE_MAPS_API_KEY"), help="Google Maps API Key (optional if proxy credential injection is enabled)")
 
     args = parser.parse_args()
-
-    if not args.api_key:
-        print(json.dumps({"error": "GOOGLE_MAPS_API_KEY environment variable or --api-key required."}), file=sys.stderr)
-        sys.exit(1)
 
     try:
         target_dt = datetime.datetime.strptime(args.dining_time, "%Y-%m-%d %H:%M")

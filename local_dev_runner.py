@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
+# ==============================================================================
+# NOTICE: FOR HUMAN DEVELOPER LOCAL TESTING ONLY.
+# DO NOT RUN THIS SCRIPT FROM THE MANAGED AGENT OR INSIDE THE SANDBOX.
+# The agent should only invoke skills/scripts under .agents/skills/.
+# ==============================================================================
 """
-demo_runner.py - Example script to launch the Restaurant Recommendation Managed Agent
-using the Gemini Interactions API and google-genai SDK.
+local_dev_runner.py - Developer test script to launch the Restaurant Recommendation
+Managed Agent from a local development workstation using the Gemini Interactions API
+and google-genai SDK.
 """
 
 import os
@@ -22,7 +28,7 @@ def run_demo():
         return
 
     if not maps_api_key:
-        print("Warning: GOOGLE_MAPS_API_KEY not set. Places API queries will require an API key.", file=sys.stderr)
+        print("Notice: GOOGLE_MAPS_API_KEY not set locally. In a sandbox environment with egress proxy credential injection, Places API calls authenticate automatically.", file=sys.stderr)
 
     client = genai.Client()
 
@@ -44,14 +50,16 @@ def run_demo():
 
     print("Launching Gemini Managed Agent interaction...")
 
+    env_vars = {}
+    if maps_api_key:
+        env_vars["GOOGLE_MAPS_API_KEY"] = maps_api_key
+
     interaction = client.interactions.create(
         agent="antigravity-preview-05-2026",
-        input="I'm looking for 3 great Italian restaurants in Soho New York for this Friday dinner. Price range $$ to $$$. I don't eat shellfish.",
+        input="I'm looking for 3 great Japanese restaurants in Banqiao, Taipei for this Friday dinner. Price range $ to $$.",
         environment={
             "type": "remote",
-            "variables": {
-                "GOOGLE_MAPS_API_KEY": maps_api_key or ""
-            },
+            "variables": env_vars,
             "sources": [
                 {
                     "type": "inline",

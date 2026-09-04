@@ -4,7 +4,11 @@ import os
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".agents", "skills", "restaurant-recommender", "scripts")))
 
-from search_places import parse_search_results, map_price_levels
+from unittest.mock import patch, MagicMock
+import urllib.error
+import io
+
+from search_places import parse_search_results, map_price_levels, search_places
 
 
 class TestPlaceSearch(unittest.TestCase):
@@ -56,6 +60,49 @@ class TestPlaceSearch(unittest.TestCase):
         self.assertEqual(results[1]["name"], "Superb Trattoria")
         # Ensure place_2 with rating 3.8 was excluded
         self.assertNotIn("Low Rated Diner", [r["name"] for r in results])
+
+    @patch("urllib.request.urlopen")
+    def test_search_places_omits_api_key_header_when_none(self, mock_urlopen):
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b'{"places": []}'
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        search_places(query="pizza in Soho", api_key=None)
+
+        self.assertTrue(mock_urlopen.called)
+        req = mock_urlopen.call_args[0][0]
+        self.assertFalse(req.has_header("X-goog-api-key"))
+
+    @patch("urllib.request.urlopen")
+    def test_search_places_includes_api_key_header_when_provided(self, mock_urlopen):
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b'{"places": []}'
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        search_places(query="pizza in Soho", api_key="TEST_API_KEY")
+
+        self.assertTrue(mock_urlopen.called)
+        req = mock_urlopen.call_args[0][0]
+        self.assertTrue(req.has_header("X-goog-api-key"))
+        self.assertEqual(req.get_header("X-goog-api-key"), "TEST_API_KEY")
+
+    @patch("urllib.request.urlopen")
+    def test_search_places_unauthorized_error_diagnostic(self, mock_urlopen):
+        err = urllib.error.HTTPError(
+            url="https://places.googleapis.com",
+            code=401,
+            msg="Unauthorized",
+            hdrs={},
+            fp=io.BytesIO(b'{"error": {"status": "UNAUTHENTICATED"}}')
+        )
+        mock_urlopen.side_effect = err
+
+        with self.assertRaises(RuntimeError) as ctx:
+            search_places(query="pizza", api_key=None)
+
+        self.assertIn("sandbox credential proxy is active", str(ctx.exception))
 
 
 if __name__ == "__main__":
